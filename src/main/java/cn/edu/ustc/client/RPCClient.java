@@ -84,6 +84,7 @@ public class RPCClient {
                         ch.pipeline().addLast(rpcResponseHandler);
                     }
                 })
+                //需要通过注册中心获取？
                 .connect("127.0.0.1", 8080)
                 .sync()
                 .channel();

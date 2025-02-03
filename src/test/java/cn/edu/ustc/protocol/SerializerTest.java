@@ -2,11 +2,14 @@ package cn.edu.ustc.protocol;
 
 
 import cn.edu.ustc.config.Config;
+import cn.edu.ustc.registry.NacosUtil;
+import com.alibaba.nacos.api.exception.NacosException;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.logging.LoggingHandler;
 import org.junit.Test;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -59,6 +62,12 @@ public class SerializerTest {
         byte[] bytes = protobufSerializer.serialize(sayHelloRequest);
         System.out.println(protobufSerializer);
         System.out.println(protobufSerializer.deserialize(RPCRequest.class, bytes));
+    }
+
+    @Test
+    public void testNacosRegistry() throws NacosException, IOException {
+        NacosUtil.registerService("testNacosRegistry", "127.0.0.1", 8080);
+        System.in.read();
     }
 
 }
