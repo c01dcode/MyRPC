@@ -33,9 +33,10 @@ public class SerializerTest {
         buffer.writeInt(0xCAFEBABE);
         //序列化算法
         Serializer.Algorithm serializerAlgorithm = Config.getSerializerAlgorithm();
+        System.out.println(serializerAlgorithm);
         buffer.writeInt(serializerAlgorithm.ordinal());
         //消息类型
-        buffer.writeInt(sayHelloRequest.getSerializerType());
+        buffer.writeInt(sayHelloRequest.getMessageType());
         //对象转为字节数组
         byte[] bytes = serializerAlgorithm.serialize(sayHelloRequest);
         //长度
@@ -46,4 +47,18 @@ public class SerializerTest {
         channel.writeInbound(buffer);
 
     }
+
+    @Test
+    public void testProtostuff() throws ClassNotFoundException {
+        Serializer.Algorithm protobufSerializer = Serializer.Algorithm.Protobuf;
+        RPCRequest sayHelloRequest = new RPCRequest("cn.edu.ustc.server.service.HelloService",
+                "sayHello",
+                String.class,
+                new Class[]{String.class},
+                new Object[]{"zhangsan"});
+        byte[] bytes = protobufSerializer.serialize(sayHelloRequest);
+        System.out.println(protobufSerializer);
+        System.out.println(protobufSerializer.deserialize(RPCRequest.class, bytes));
+    }
+
 }

@@ -54,6 +54,7 @@ public class MessageCodec extends MessageToMessageCodec<ByteBuf, MyProtocolMessa
         byteBuf.readBytes(bytes, 0, length);
         //根据数字获取序列化算法
         Serializer.Algorithm serializer = Config.getSerializerAlgorithm().values()[serializerType];
+        log.debug("{}", serializer);
         //根据数字获取实际消息类型0/1分别表示请求、响应
         Class<?> clazz = null;
         if(messageType == 0)
