@@ -4,6 +4,7 @@ package cn.edu.ustc.protocol;
 import cn.edu.ustc.config.Config;
 import cn.edu.ustc.registry.NacosUtil;
 import com.alibaba.nacos.api.exception.NacosException;
+import com.alibaba.nacos.api.naming.pojo.Instance;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.embedded.EmbeddedChannel;
 import io.netty.handler.logging.LoggingHandler;
@@ -65,8 +66,10 @@ public class SerializerTest {
     }
 
     @Test
-    public void testNacosRegistry() throws NacosException, IOException {
+    public void testNacosRegistry() throws NacosException, IOException, InterruptedException {
         NacosUtil.registerService("testNacosRegistry", "127.0.0.1", 8080);
+        System.out.println(123);
+        List<Instance> testNacosRegistry = NacosUtil.getInstances("testNacosRegistry");
         System.in.read();
     }
 

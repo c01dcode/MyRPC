@@ -6,6 +6,8 @@ import com.alibaba.nacos.api.naming.NamingService;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import lombok.extern.slf4j.Slf4j;
 
+import java.util.List;
+
 
 @Slf4j
 public class NacosUtil {
@@ -28,5 +30,8 @@ public class NacosUtil {
         namingService.registerInstance(serviceName, instance);
     }
 
-    //服务注销
+    //获取实例
+    public static List<Instance> getInstances(String serviceName) throws NacosException {
+        return namingService.getAllInstances(serviceName);
+    }
 }

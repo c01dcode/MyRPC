@@ -16,6 +16,14 @@ public abstract class Config {
             throw new ExceptionInInitializerError(e);
         }
     }
+    public static String getServerIP() {
+        String value = properties.getProperty("server.ip");
+        if(value == null) {
+            return "127.0.0.1";
+        } else {
+            return value;
+        }
+    }
     public static int getServerPort() {
         String value = properties.getProperty("server.port");
         if(value == null) {

@@ -2,13 +2,12 @@ package cn.edu.ustc.server.handler;
 
 import cn.edu.ustc.protocol.RPCRequest;
 import cn.edu.ustc.protocol.RPCResponse;
-import cn.edu.ustc.server.service.RegisterCenter;
+import cn.edu.ustc.server.serviceprovider.ServiceProvider;
 import io.netty.channel.ChannelHandler;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
 import lombok.extern.slf4j.Slf4j;
 
-import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 
 @ChannelHandler.Sharable
@@ -23,8 +22,7 @@ public class RPCRequestHandler extends SimpleChannelInboundHandler<RPCRequest> {
             String methodName = rpcRequest.getMethodName();
             Class<?>[] parameterTypes = rpcRequest.getParameterTypes();
             Object[] parameterValue = rpcRequest.getParameterValue();
-            //TODO 通过注册中心Nacos获取
-            Class<?> service = RegisterCenter.getService(interfaceName);
+            Class<?> service = ServiceProvider.getService(interfaceName);
             Method method = service.getMethod(methodName, parameterTypes);
             Object result = method.invoke(service.newInstance(), parameterValue);
             rpcResponse.setReturnValue(result);

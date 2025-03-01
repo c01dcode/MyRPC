@@ -13,7 +13,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 提高不同的序列化、反序列化算法
+ * 提供不同的序列化算法
  * 0 Jdk 1 Json 2 Protobuf ...
  */
 public interface Serializer {
@@ -24,6 +24,7 @@ public interface Serializer {
     // 序列化方法
     <T> byte[] serialize(T object);
 
+    //通过枚举建立序列化方式和数字对应关系，用于自定义传输协议
     enum Algorithm implements Serializer {
         //0
         Jdk {

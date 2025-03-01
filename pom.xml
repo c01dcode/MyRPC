@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.ustc</groupId>
-    <artifactId>MyRPC</artifactId>
+    <artifactId>EasyRPC</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
@@ -60,7 +60,11 @@
             <artifactId>nacos-client</artifactId>
             <version>1.4.2</version>
         </dependency>
-
+        <dependency>
+            <groupId>org.reflections</groupId>
+            <artifactId>reflections</artifactId>
+            <version>0.10.2</version>
+        </dependency>
 
     </dependencies>
 </project>
