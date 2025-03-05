@@ -9,21 +9,23 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 
 @ChannelHandler.Sharable
 @Slf4j
 public class RPCResponseHandler extends SimpleChannelInboundHandler<RPCResponse> {
-    public static final Map<UUID, Promise<Object>> map = new ConcurrentHashMap<>();
+    public static final Map<UUID, CompletableFuture<Object>> map = new ConcurrentHashMap<>();
+
     @Override
     protected void channelRead0(ChannelHandlerContext channelHandlerContext, RPCResponse rpcResponse) throws Exception {
-        Promise<Object> promise = map.remove(rpcResponse.getId());
-        if(promise != null) {
+        CompletableFuture<Object> completableFuture = map.remove(rpcResponse.getId());
+        if(completableFuture != null) {
             Exception exceptionValue = rpcResponse.getExceptionValue();
             if(exceptionValue != null) {
-                promise.setFailure(exceptionValue);
+                completableFuture.completeExceptionally(exceptionValue);
             }else{
-                promise.setSuccess(rpcResponse.getReturnValue());
+                completableFuture.complete(rpcResponse.getReturnValue());
             }
         }
     }

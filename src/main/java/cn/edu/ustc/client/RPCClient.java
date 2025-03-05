@@ -17,20 +17,68 @@ import io.netty.channel.ChannelInitializer;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.nio.NioSocketChannel;
 import io.netty.handler.logging.LoggingHandler;
-import io.netty.util.concurrent.DefaultPromise;
 import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 public class RPCClient {
-    public static void main(String[] args) throws InterruptedException {
+    public static void main(String[] args) throws InterruptedException, ExecutionException {
         RPCClient rpcClient = new RPCClient();
-        HelloService helloService = rpcClient.getProxyService(HelloService.class);
-        System.out.println(helloService.sayHello("zhangsan"));
-        System.out.println(helloService.sayHello("lisi"));
+        //基于动态代理的同步调用
+//        HelloService helloService = rpcClient.getProxyService(HelloService.class);
+//        System.out.println(helloService.sayHello("zhangsan"));
+//        System.out.println(helloService.sayHello("lisi"));
+
+        //异步调用
+        String interfaceName = HelloService.class.getName();
+        String methodName = "sayHello";
+        Class<?> returnType = String.class;
+        Class[] parameterTypes = new Class[]{String.class};
+        Object[] parameterValue3 = new String[]{"user3"};
+        Object[] parameterValue1 = new String[]{"user1"};
+        Object[] parameterValue4 = new String[]{"user4"};
+        Object[] parameterValue2 = new String[]{"user2"};
+        CompletableFuture<String> helloFuture2 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue2);
+        CompletableFuture<String> helloFuture4 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue4);
+        CompletableFuture<String> helloFuture3 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue3);
+        CompletableFuture<String> helloFuture1 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue1);
+        CompletableFuture<String> helloFutureAll = helloFuture1.thenCombine(helloFuture2, (r1, r2) -> r1 + r2)
+                .thenCombine(helloFuture3, (r1, r2) -> r1 + r2)
+                .thenCombine(helloFuture4, (r1, r2) -> r1 + r2);
+        System.out.println(helloFutureAll.get());
     }
+
+
+    //异步RPC（动态代理不能返回future类型，只能自己实现？）
+    private CompletableFuture callAsync(
+            String interfaceName,
+            String methodName,
+            Class<?> returnType,
+            Class[] parameterTypes,
+            Object[] parameterValue) throws InterruptedException {
+        //构造请求对象
+        RPCRequest request = new RPCRequest(interfaceName,
+                methodName,
+                returnType,
+                parameterTypes,
+                parameterValue);
+        return callAsync(request);
+    }
+
+    //异步RPC（动态代理不能返回future类型，只能自己实现？）
+    private CompletableFuture callAsync(RPCRequest request) throws InterruptedException {
+        findService(request.getInterfaceName());
+        CompletableFuture<Object> resquestFuture = new CompletableFuture<>();
+        RPCResponseHandler.map.put(request.getId(), resquestFuture);
+        getChannel().writeAndFlush(request);
+        //异步调用直接返回future
+        return resquestFuture;
+    }
+
 
     private String ip;
     private int port;
@@ -58,11 +106,42 @@ public class RPCClient {
         return channel;
     }
 
+    //默认基于动态代理的同步调用
     private <T> T getProxyService(Class<T> serviceClass) {
+        //服务发现
+        findService(serviceClass.getCanonicalName());
+        //动态代理
+        ClassLoader classLoader = serviceClass.getClassLoader();
+        Object proxyInstance = Proxy.newProxyInstance(
+                classLoader,
+                new Class[]{serviceClass},
+                (proxy, method, args) -> {
+                    //构造请求对象
+                    RPCRequest request = new RPCRequest(serviceClass.getName(),
+                            method.getName(),
+                            method.getReturnType(),
+                            method.getParameterTypes(),
+                            args);
+                    CompletableFuture<Object> resquestFuture = new CompletableFuture<>();
+                    RPCResponseHandler.map.put(request.getId(), resquestFuture);
+                    getChannel().writeAndFlush(request);
+                    //同步调用模式等待返回结果
+                    try {
+                        return resquestFuture.get();
+                    } catch (ExecutionException e) {
+                        throw new RuntimeException("远程调用失败");
+                    }
+                }
+        );
+
+        return (T) proxyInstance;
+    }
+
+    private <T> void findService(String serviceName) {
         //服务发现
         List<Instance> instances;
         try {
-            instances = NacosUtil.getInstances(serviceClass.getCanonicalName());
+            instances = NacosUtil.getInstances(serviceName);
         } catch (NacosException e) {
             throw new RuntimeException(e);
         }
@@ -71,31 +150,6 @@ public class RPCClient {
         Instance instance = loadBalancer.select(instances);
         ip = instance.getIp();
         port = instance.getPort();
-        //动态代理
-        ClassLoader classLoader = serviceClass.getClassLoader();
-        Object proxyInstance = Proxy.newProxyInstance(
-                classLoader,
-                new Class[]{serviceClass},
-
-                (proxy, method, args) -> {
-                    //构造请求对象
-                    RPCRequest request = new RPCRequest(serviceClass.getName(),
-                            method.getName(),
-                            method.getReturnType(),
-                            method.getParameterTypes(),
-                            args);
-                    DefaultPromise promise = new DefaultPromise(getChannel().eventLoop());
-                    RPCResponseHandler.map.put(request.getId(), promise);
-                    getChannel().writeAndFlush(request);
-                    promise.await();
-                    if (promise.isSuccess()) {
-                        return promise.getNow();
-                    } else {
-                        throw new RuntimeException("远程调用失败");
-                    }
-                }
-        );
-        return (T) proxyInstance;
     }
 
     // 获取channel
