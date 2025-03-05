@@ -1,12 +1,16 @@
 package cn.edu.ustc.registry;
 
+import com.alibaba.nacos.api.config.listener.Listener;
 import com.alibaba.nacos.api.exception.NacosException;
 import com.alibaba.nacos.api.naming.NamingFactory;
 import com.alibaba.nacos.api.naming.NamingService;
+import com.alibaba.nacos.api.naming.listener.EventListener;
 import com.alibaba.nacos.api.naming.pojo.Instance;
 import lombok.extern.slf4j.Slf4j;
 
+import java.net.InetAddress;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 
 
 @Slf4j
@@ -30,8 +34,11 @@ public class NacosUtil {
         namingService.registerInstance(serviceName, instance);
     }
 
+
     //获取实例
     public static List<Instance> getInstances(String serviceName) throws NacosException {
         return namingService.getAllInstances(serviceName);
     }
+
+
 }

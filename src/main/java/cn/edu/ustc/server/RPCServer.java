@@ -21,19 +21,9 @@ import org.reflections.Reflections;
 import java.util.Set;
 
 public class RPCServer {
-    public static void main(String[] args) throws NacosException {
+    public static void main(String[] args){
         //扫描指定目录下的@RPCService并注册服务
-        Reflections reflections = new Reflections("cn.edu.ustc.server.service");
-        Set<Class<?>> classes = reflections.getTypesAnnotatedWith(RPCService.class);
-        for (Class<?> clazz : classes) {
-            Class<?>[] interfaces = clazz.getInterfaces();
-            //对所有实现了的接口注册服务
-            for (Class<?> anInterface : interfaces) {
-                NacosUtil.registerService(anInterface.getCanonicalName(), Config.getServerIP(), Config.getServerPort());
-                //保存接口-实现类信息
-                ServiceProvider.addService(anInterface.getCanonicalName(), clazz);
-            }
-        }
+        ServiceProvider.scanAndRegisterServices("cn.edu.ustc.server.service");
 
         LoggingHandler loggingHandler = new LoggingHandler();
         MessageCodec messageCodec = new MessageCodec();
