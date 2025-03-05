@@ -21,6 +21,7 @@ import lombok.extern.slf4j.Slf4j;
 
 import java.lang.reflect.Proxy;
 import java.util.List;
+import java.util.ServiceLoader;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 
@@ -85,12 +86,17 @@ public class RPCClient {
     private LoadBalancer loadBalancer;
 
     public RPCClient() {
-        this.loadBalancer = new RandomLoadBalancer();
+        //spi读取负载均衡实现类
+        ServiceLoader<LoadBalancer> loadBalancers = ServiceLoader.load(LoadBalancer.class);
+        for (LoadBalancer loadBalancer : loadBalancers) {
+            this.loadBalancer = loadBalancer;
+        }
+        if (this.loadBalancer == null) {
+            //默认采用随机负载均衡
+            this.loadBalancer = new RandomLoadBalancer();
+        }
     }
 
-    public RPCClient(LoadBalancer loadBalancer) {
-        this.loadBalancer = loadBalancer;
-    }
 
     private volatile Channel channel = null;
     private Object lock = new Object();
