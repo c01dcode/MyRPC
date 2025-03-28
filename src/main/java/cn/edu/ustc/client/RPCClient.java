@@ -34,53 +34,19 @@ public class RPCClient {
 //        System.out.println(helloService.sayHello("zhangsan"));
 //        System.out.println(helloService.sayHello("lisi"));
 
-        //异步调用
-        String interfaceName = HelloService.class.getName();
-        String methodName = "sayHello";
-        Class<?> returnType = String.class;
-        Class[] parameterTypes = new Class[]{String.class};
-        Object[] parameterValue3 = new String[]{"user3"};
-        Object[] parameterValue1 = new String[]{"user1"};
-        Object[] parameterValue4 = new String[]{"user4"};
-        Object[] parameterValue2 = new String[]{"user2"};
-        CompletableFuture<String> helloFuture2 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue2);
-        CompletableFuture<String> helloFuture4 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue4);
-        CompletableFuture<String> helloFuture3 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue3);
-        CompletableFuture<String> helloFuture1 = rpcClient.callAsync(interfaceName, methodName, returnType, parameterTypes, parameterValue1);
-        CompletableFuture<String> helloFutureAll = helloFuture1.thenCombine(helloFuture2, (r1, r2) -> r1 + r2)
-                .thenCombine(helloFuture3, (r1, r2) -> r1 + r2)
-                .thenCombine(helloFuture4, (r1, r2) -> r1 + r2);
-        System.out.println(helloFutureAll.get());
+        // 获取异步代理
+        AsyncProxy<HelloService> asyncProxy = rpcClient.getAsyncProxy(HelloService.class);
+        
+        // 异步调用方法
+        CompletableFuture<Object> future1 = asyncProxy.invoke("sayHello", "user1");
+        CompletableFuture<Object> future2 = asyncProxy.invoke("sayHello", "user2");
+        
+        // 组合多个异步调用
+        CompletableFuture.allOf(future1, future2)
+                .thenRun(() -> log.debug("所有调用完成"));
     }
 
-
-    //异步RPC（动态代理不能返回future类型，只能自己实现？）
-    private CompletableFuture callAsync(
-            String interfaceName,
-            String methodName,
-            Class<?> returnType,
-            Class[] parameterTypes,
-            Object[] parameterValue) throws InterruptedException {
-        //构造请求对象
-        RPCRequest request = new RPCRequest(interfaceName,
-                methodName,
-                returnType,
-                parameterTypes,
-                parameterValue);
-        return callAsync(request);
-    }
-
-    //异步RPC（动态代理不能返回future类型，只能自己实现？）
-    private CompletableFuture callAsync(RPCRequest request) throws InterruptedException {
-        findService(request.getInterfaceName());
-        CompletableFuture<Object> resquestFuture = new CompletableFuture<>();
-        RPCResponseHandler.map.put(request.getId(), resquestFuture);
-        getChannel().writeAndFlush(request);
-        //异步调用直接返回future
-        return resquestFuture;
-    }
-
-
+    //RPC客户端参数
     private String ip;
     private int port;
     private LoadBalancer loadBalancer;
@@ -97,10 +63,9 @@ public class RPCClient {
         }
     }
 
-
+    //获取单例channel
     private volatile Channel channel = null;
     private Object lock = new Object();
-    //获取单例channel
     public Channel getChannel() throws InterruptedException {
         if(channel == null){
             synchronized (lock){
@@ -143,8 +108,54 @@ public class RPCClient {
         return (T) proxyInstance;
     }
 
+    // 获取异步代理对象
+    public <T> AsyncProxy<T> getAsyncProxy(Class<T> serviceClass) {
+        return new AsyncProxy<>(serviceClass, this);
+    }
+    
+    // 新增 AsyncProxy 内部类
+    public class AsyncProxy<T> {
+        private final Class<T> serviceClass;
+        private final RPCClient rpcClient;
+
+        public AsyncProxy(Class<T> serviceClass, RPCClient rpcClient) {
+            this.serviceClass = serviceClass;
+            this.rpcClient = rpcClient;
+        }
+
+        public CompletableFuture<Object> invoke(String methodName, Object... args) throws InterruptedException {
+            // 通过反射获取方法参数类型
+            Class<?>[] parameterTypes = new Class<?>[args.length];
+            for (int i = 0; i < args.length; i++) {
+                parameterTypes[i] = args[i].getClass();
+            }
+            
+            // 查找对应方法获取返回值类型
+            Class<?> returnType;
+            try {
+                returnType = serviceClass.getMethod(methodName, parameterTypes).getReturnType();
+            } catch (NoSuchMethodException e) {
+                throw new RuntimeException("方法不存在", e);
+            }
+            
+            RPCRequest rpcRequest = new RPCRequest(
+                            serviceClass.getName(),
+                            methodName,
+                            returnType,
+                            parameterTypes,
+                            args
+                        );
+            findService(rpcRequest.getInterfaceName());
+            CompletableFuture<Object> resquestFuture = new CompletableFuture<>();
+            RPCResponseHandler.map.put(rpcRequest.getId(), resquestFuture);
+            getChannel().writeAndFlush(rpcRequest);
+            //异步调用直接返回future
+            return resquestFuture;
+        }
+    }
+
+    //服务发现
     private <T> void findService(String serviceName) {
-        //服务发现
         List<Instance> instances;
         try {
             instances = NacosUtil.getInstances(serviceName);
